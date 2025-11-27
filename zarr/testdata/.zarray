@@ -1,0 +1,12 @@
+{
+    "chunks": [10, 10],
+    "compressor": {
+        "id": "blosc",
+        "cname": "lz4",
+        "clevel": 5,
+        "shuffle": 1
+    },
+    "dtype": "<f4",
+    "shape": [100, 100],
+    "zarr_format": 2
+}
