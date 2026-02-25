@@ -1,94 +1,79 @@
 package zarr
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"strconv"
 )
 
-// Metadata represents the Zarr V2 .zarray metadata.
+// CompressorConfig represents the Zarr compressor metadata.
+type CompressorConfig struct {
+	ID      string `json:"id"`
+	Cname   string `json:"cname,omitempty"`
+	Clevel  int    `json:"clevel,omitempty"`
+	Shuffle int    `json:"shuffle,omitempty"`
+}
+
 // Metadata represents the Zarr V2 .zarray metadata.
 type Metadata struct {
-	Chunks     []int             `json:"chunks"`
-	Compressor *CompressorConfig `json:"compressor"`
-	DType      string            `json:"dtype"`
-	Shape      []int             `json:"shape"`
 	ZarrFormat int               `json:"zarr_format"`
+	Shape      []int             `json:"shape"`
+	Chunks     []int             `json:"chunks"`
+	DType      string            `json:"dtype"`
+	Compressor *CompressorConfig `json:"compressor"`
+	FillValue  interface{}       `json:"fill_value"`
+	Order      string            `json:"order"`
 }
 
-// CompressorConfig represents the compression configuration.
-type CompressorConfig struct {
-	ID    string `json:"id"`
-	Level int    `json:"level,omitempty"`
+// LoadMetadata reads and parses the .zarray file from the given directory path.
+func LoadMetadata(reader io.Reader) (*Metadata, error) {
+	var meta Metadata
+	if err := json.NewDecoder(reader).Decode(&meta); err != nil {
+		return nil, fmt.Errorf("failed to decode metadata: %w", err)
+	}
+
+	if meta.ZarrFormat != 2 {
+		return nil, fmt.Errorf("unsupported zarr_format: %d, expected 2", meta.ZarrFormat)
+	}
+
+	return &meta, nil
 }
 
-// DType represents a parsed Zarr data type.
-type DType string
-
-// Common Zarr DTypes.
-const (
-	Bool    DType = "bool"
-	Int8    DType = "int8"
-	Int16   DType = "int16"
-	Int32   DType = "int32"
-	Int64   DType = "int64"
-	Uint8   DType = "uint8"
-	Uint16  DType = "uint16"
-	Uint32  DType = "uint32"
-	Uint64  DType = "uint64"
-	Float32 DType = "float32"
-	Float64 DType = "float64"
-	// Complex types can be added if needed
-)
-
-// ParseDType parses a Zarr dtype string (e.g., "<f4", "|b1") into a Go-friendly DType.
-func ParseDType(dtype string) (DType, error) {
-	if len(dtype) < 2 {
-		return "", fmt.Errorf("invalid dtype: %s", dtype)
+// ParseDType takes a numpy-style string like "<f4", "|b1", "<i8",
+// and returns a simplified string name (e.g., "float32", "bool", "int64"),
+// the byte size (e.g., 4, 1, 8), and an error if unsupported.
+// Reject big-endian (>) types for now.
+func ParseDType(s string) (string, int, error) {
+	if len(s) < 3 {
+		return "", 0, fmt.Errorf("invalid dtype: %s", s)
 	}
 
-	// Handle simple cases or numpy-style strings
-	// Zarr spec: https://zarr.readthedocs.io/en/stable/spec/v2.html#data-type-encoding
-	// Basic mapping for common types:
-	switch dtype {
-	case "|b1":
-		return Bool, nil
-	case "|i1":
-		return Int8, nil
-	case "|u1":
-		return Uint8, nil
-	case "<i2":
-		return Int16, nil
-	case "<i4":
-		return Int32, nil
-	case "<i8":
-		return Int64, nil
-	case "<u2":
-		return Uint16, nil
-	case "<u4":
-		return Uint32, nil
-	case "<u8":
-		return Uint64, nil
-	case "<f4":
-		return Float32, nil
-	case "<f8":
-		return Float64, nil
-	// Big-endian variants (>) could be added if needed, but assuming little-endian (<) for now as it's standard on x86
-	case ">i2":
-		return Int16, nil // Note: This doesn't handle endianness conversion, just type mapping
-	case ">i4":
-		return Int32, nil
-	case ">i8":
-		return Int64, nil
-	case ">u2":
-		return Uint16, nil
-	case ">u4":
-		return Uint32, nil
-	case ">u8":
-		return Uint64, nil
-	case ">f4":
-		return Float32, nil
-	case ">f8":
-		return Float64, nil
+	endian := s[0]
+	if endian == '>' {
+		return "", 0, fmt.Errorf("big-endian types are unsupported: %s", s)
 	}
 
-	return "", fmt.Errorf("unsupported or unknown dtype: %s", dtype)
+	kind := s[1]
+	sizeStr := s[2:]
+
+	size, err := strconv.Atoi(sizeStr)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid size in dtype: %s", s)
+	}
+
+	switch kind {
+	case 'b':
+		return "bool", size, nil
+	case 'i':
+		return fmt.Sprintf("int%d", size*8), size, nil
+	case 'u':
+		return fmt.Sprintf("uint%d", size*8), size, nil
+	case 'f':
+		return fmt.Sprintf("float%d", size*8), size, nil
+	case 'c':
+		return fmt.Sprintf("complex%d", size*8), size, nil
+	default:
+		return "", 0, fmt.Errorf("unsupported dtype kind: %c in %s", kind, s)
+	}
 }

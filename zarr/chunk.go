@@ -5,18 +5,28 @@ import (
 	"strings"
 )
 
+// GridShape calculates the number of chunks in each dimension.
+// For each dimension i, the number of chunks is ceil(shape[i] / chunks[i]).
+func GridShape(shape, chunks []int) []int {
+	if len(shape) == 0 || len(chunks) == 0 {
+		return []int{} // 0D scalar
+	}
+	grid := make([]int, len(shape))
+	for i := range shape {
+		grid[i] = (shape[i] + chunks[i] - 1) / chunks[i]
+	}
+	return grid
+}
+
 // ChunkKey generates the key for a chunk given its indices and a separator.
 // For Zarr V2, the separator is typically ".".
 // Example: indices=[1, 4], separator="." -> "1.4"
+// For 0D arrays (empty indices), it returns "0" per the Zarr spec.
 func ChunkKey(indices []int, separator string) string {
 	if len(indices) == 0 {
-		return "0" // Zarr spec for 0-d arrays or just convention? Actually spec says "0" for 0-d.
-		// But for empty indices slice?
-		// If shape is empty (scalar), indices is empty. Key is "0".
-		// Let's assume standard case first.
+		return "0"
 	}
 
-	// Optimization for common case
 	if len(indices) == 1 {
 		return strconv.Itoa(indices[0])
 	}
