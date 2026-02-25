@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/TuSKan/go-zarr/zarr"
+	"github.com/TuSKan/go-zarr"
 )
 
 func TestGridShape(t *testing.T) {
