@@ -104,7 +104,7 @@ func TestReader_ReadFull(t *testing.T) {
 
 
 func TestStaticZarrVariations(t *testing.T) {
-	testdataDir := filepath.Join("testdata")
+	testdataDir := filepath.Join("test", "data")
 
 	entries, err := os.ReadDir(testdataDir)
 	if err != nil {
@@ -148,11 +148,7 @@ func TestStaticZarrVariations(t *testing.T) {
 				val := math.Float32frombits(bits)
 				expected := float32(i)
 
-				if math.Abs(float64(val-expected)) > 0.001 {
-					if strings.Contains(variationName, "_shuffle") {
-						t.Skipf("Skipping %s due to upstream go-blosc bug un-shuffling Memcpy arrays. Mismatch at index %d: expected %v, got %v", variationName, i, expected, val)
-						return
-					}
+				if math.Abs(float64(val-expected)) > 0.001 { 
 					t.Fatalf("Mismatch at index %d: expected %v, got %v", i, expected, val)
 				}
 			}
@@ -161,11 +157,11 @@ func TestStaticZarrVariations(t *testing.T) {
 }
 
 func TestReader_ReadRegion(t *testing.T) {
-	testdataDir := filepath.Join("testdata")
+	testdataDir := filepath.Join("test", "data")
 	zarrPath := filepath.Join(testdataDir, "uncompressed.zarr")
 	
 	if _, err := os.Stat(filepath.Join(zarrPath, ".zarray")); os.IsNotExist(err) {
-		t.Skipf("Skipping ReadRegion test because testdata uncompressed.zarr/.zarray is missing (likely gitignored). Run gen_static_data.py to test locally.")
+		t.Skipf("Skipping ReadRegion test because test/data/uncompressed.zarr/.zarray is missing (likely gitignored). Run test/gen_static_data.py to test locally.")
 	}
 
 	ctx := context.Background()

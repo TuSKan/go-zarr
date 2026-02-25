@@ -22,6 +22,9 @@ go.work.sum
 .env
 .idea/
 .vscode/
+.venv/
+.python-version
+uv.lock
+pyproject.toml
 
-*/testdata/*
-!*/testdata/*.zarr
+test/data/
